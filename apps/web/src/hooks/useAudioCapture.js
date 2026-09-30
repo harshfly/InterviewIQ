@@ -38,39 +38,75 @@ export function useAudioCapture() {
   const startCapture = useCallback(async () => {
     try {
       setError(null);
+      const audioSource = useStore.getState().settings.audioSource || 'both';
+      let stream = null;
 
-      // Request mic access
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 16000,
-        },
-      });
+      if (audioSource === 'system') {
+        // ── System/Tab Audio ONLY — capture Meet/Zoom/Teams audio, no mic ──
+        try {
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true,
+          });
+          // Kill the video track — we only want audio
+          displayStream.getVideoTracks().forEach((t) => t.stop());
 
-      let stream = micStream;
-
-      // Try to also capture system/tab audio (for Meet, Teams, Zoom)
-      try {
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true,
-        });
-        displayStream.getVideoTracks().forEach((t) => t.stop());
-
-        const systemAudioTrack = displayStream.getAudioTracks()[0];
-        if (systemAudioTrack) {
-          const ctx = new AudioContext({ sampleRate: 16000 });
-          const micSource = ctx.createMediaStreamSource(micStream);
-          const sysSource = ctx.createMediaStreamSource(new MediaStream([systemAudioTrack]));
-          const dest = ctx.createMediaStreamDestination();
-          micSource.connect(dest);
-          sysSource.connect(dest);
-          stream = dest.stream;
-          addToast('Capturing mic + system audio', 'success');
+          const systemAudioTrack = displayStream.getAudioTracks()[0];
+          if (!systemAudioTrack) {
+            throw new Error('No audio track found. Make sure to select a tab with audio.');
+          }
+          stream = new MediaStream([systemAudioTrack]);
+          addToast('Capturing system/tab audio only (no mic)', 'success');
+        } catch (e) {
+          setError('Failed to capture system audio. Please share a tab with audio enabled.');
+          addToast('System audio capture failed', 'error');
+          return;
         }
-      } catch {
-        // User declined — mic only
+      } else if (audioSource === 'mic') {
+        // ── Mic ONLY — capture local microphone only ──
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 16000,
+          },
+        });
+        addToast('Capturing microphone only', 'success');
+      } else {
+        // ── BOTH — mix mic + system audio together ──
+        const micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 16000,
+          },
+        });
+        stream = micStream;
+
+        try {
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true,
+          });
+          displayStream.getVideoTracks().forEach((t) => t.stop());
+
+          const systemAudioTrack = displayStream.getAudioTracks()[0];
+          if (systemAudioTrack) {
+            const ctx = new AudioContext({ sampleRate: 16000 });
+            const micSource = ctx.createMediaStreamSource(micStream);
+            const sysSource = ctx.createMediaStreamSource(new MediaStream([systemAudioTrack]));
+            const dest = ctx.createMediaStreamDestination();
+            micSource.connect(dest);
+            sysSource.connect(dest);
+            stream = dest.stream;
+            addToast('Capturing mic + system audio', 'success');
+          } else {
+            addToast('Mic only — tab had no audio track', 'info');
+          }
+        } catch {
+          // User declined screen share — mic only
+          addToast('Mic only (screen share declined)', 'info');
+        }
       }
 
       streamRef.current = stream;
@@ -158,9 +194,9 @@ export function useAudioCapture() {
       addToast('Real-time streaming started', 'success');
     } catch (e) {
       setError(e.message);
-      addToast(`Microphone access denied: ${e.message}`, 'error');
+      addToast(`Audio capture failed: ${e.message}`, 'error');
     }
-  }, [settings.language]);
+  }, [settings.language, settings.audioSource]);
 
   // Fallback: if WebSocket fails, use the old chunked REST approach
   const fallbackToRest = useCallback(() => {

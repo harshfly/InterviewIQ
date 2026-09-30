@@ -87,6 +87,34 @@ export default function LiveSession() {
 
           {error && <span className="audio-error">{error}</span>}
 
+          {/* Audio Source Selector */}
+          <div className="audio-source-selector">
+            <span className="audio-source-label">Audio:</span>
+            <div className="audio-source-btns">
+              <button
+                className={`audio-src-btn ${useStore.getState().settings.audioSource === 'mic' ? 'active' : ''}`}
+                onClick={() => { useStore.getState().updateSettings({ audioSource: 'mic' }); }}
+                title="Capture your microphone only"
+              >
+                🎤 Mic
+              </button>
+              <button
+                className={`audio-src-btn ${useStore.getState().settings.audioSource === 'system' ? 'active' : ''}`}
+                onClick={() => { useStore.getState().updateSettings({ audioSource: 'system' }); }}
+                title="Capture Meet/Zoom/Teams audio only (no mic)"
+              >
+                🖥️ System
+              </button>
+              <button
+                className={`audio-src-btn ${(useStore.getState().settings.audioSource || 'both') === 'both' ? 'active' : ''}`}
+                onClick={() => { useStore.getState().updateSettings({ audioSource: 'both' }); }}
+                title="Capture both mic + system audio"
+              >
+                🔊 Both
+              </button>
+            </div>
+          </div>
+
           <div className="hotkey-hints">
             <span><kbd>Ctrl+Shift+H</kbd> overlay</span>
             <span><kbd>Ctrl+Shift+R</kbd> regenerate</span>
