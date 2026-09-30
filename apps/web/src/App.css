@@ -1,0 +1,16 @@
+/* App shell — minimal overrides */
+
+.toast-error {
+  background: var(--gray-900);
+  border-left: 2px solid var(--red);
+}
+
+.toast-success {
+  background: var(--gray-900);
+  border-left: 2px solid var(--green);
+}
+
+.toast-warning {
+  background: var(--gray-900);
+  border-left: 2px solid var(--amber);
+}
