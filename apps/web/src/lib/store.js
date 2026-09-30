@@ -92,17 +92,27 @@ export const useStore = create((set, get) => ({
     } finally {
       set({
         isGenerating: false,
-        audioStatus: 'listening',
-        currentQuestion: '',
-        currentAnswer: '',
+        audioStatus: get().isListening ? 'listening' : 'idle',
       });
     }
+  },
+
+  regenerateAnswer: async () => {
+    const { currentQuestion, qaHistory, session } = get();
+    // Use the current question, or the last question from history
+    const question = currentQuestion || qaHistory[qaHistory.length - 1]?.question;
+    if (!question || !session) return;
+    // Remove the last history entry if it matches (we're replacing it)
+    if (!currentQuestion && qaHistory.length > 0) {
+      set((state) => ({ qaHistory: state.qaHistory.slice(0, -1) }));
+    }
+    await get().generateAnswer(question);
   },
 
   // ── QA History ──
   qaHistory: [],
   addToHistory: (question, answer, type) => set((state) => ({
-    qaHistory: [...state.qaHistory, { question, answer, type, timestamp: new Date(), wasUsed: false }],
+    qaHistory: [...state.qaHistory, { id: crypto.randomUUID(), question, answer, type, timestamp: new Date(), wasUsed: false }],
   })),
 
   // ── Settings ──
@@ -111,6 +121,7 @@ export const useStore = create((set, get) => ({
     sttProvider: 'groq',
     llmProvider: 'groq',
     language: 'en',
+    audioSource: 'both', // 'mic' | 'system' | 'both'
     overlayOpacity: 0.45,
     overlayPosition: { x: 100, y: 100 },
     hotkeys: {

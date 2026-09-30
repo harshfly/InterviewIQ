@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Component } from 'react';
 import useStore from './lib/store';
 import useHotkeys from './hooks/useHotkeys';
 import SessionSetup from './components/SessionSetup/SessionSetup';
@@ -6,6 +6,33 @@ import LiveSession from './components/SessionSetup/LiveSession';
 import History from './components/History/History';
 import Settings from './components/Settings/Settings';
 import './App.css';
+
+// Error Boundary — prevents white screen of death
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px', textAlign: 'center', color: '#FAFAF9', background: '#07070a', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '48px' }}>⚠️</div>
+          <h2 style={{ fontSize: '20px', fontWeight: 600 }}>Something went wrong</h2>
+          <p style={{ color: '#A8A29E', maxWidth: '400px' }}>{this.state.error?.message || 'An unexpected error occurred.'}</p>
+          <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            style={{ padding: '10px 24px', background: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+            Reload App
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const { currentView, setView, session, toasts, fetchHealth } = useStore();
@@ -16,7 +43,7 @@ export default function App() {
 
   useHotkeys({
     'Ctrl+Shift+H': () => document.dispatchEvent(new CustomEvent('toggle-overlay')),
-    'Ctrl+Shift+R': () => document.dispatchEvent(new CustomEvent('regenerate-answer')),
+    'Ctrl+Shift+R': () => useStore.getState().regenerateAnswer(),
     'Ctrl+Shift+P': () => document.dispatchEvent(new CustomEvent('toggle-pause')),
   });
 
@@ -31,6 +58,7 @@ export default function App() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="app-layout">
       <header className="app-header">
         <div className="app-logo" onClick={() => setView(session ? 'live' : 'setup')}>
@@ -78,5 +106,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Markdown from 'react-markdown';
 import useStore from '../../lib/store';
 import './Overlay.css';
 
@@ -308,14 +309,15 @@ export default function Overlay({ toggleCapture }) {
             )}
 
             {/* Render full history */}
-            {qaHistory.map((qa, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '12px', borderBottom: i !== qaHistory.length - 1 || currentQuestion ? '1px solid var(--overlay-border)' : 'none' }}>
+            {qaHistory.map((qa) => (
+              <div key={qa.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '12px', borderBottom: '1px solid var(--overlay-border)' }}>
                 <div className="overlay-question">
                   <span className="q-marker">Q</span>
                   <p>{qa.question}</p>
                 </div>
                 <div className="overlay-answer">
-                  <div className="answer-content">{qa.answer}</div>
+                  <div className="answer-content markdown-body"><Markdown>{qa.answer}</Markdown></div>
+                  <button className="copy-btn" title="Copy answer" onClick={() => { navigator.clipboard.writeText(qa.answer); useStore.getState().addToast('Copied!', 'success'); }}>📋</button>
                 </div>
               </div>
             ))}
@@ -330,10 +332,16 @@ export default function Overlay({ toggleCapture }) {
                 
                 {(currentAnswer || isGenerating) && (
                   <div className="overlay-answer animate-in">
-                    <div className="answer-content">
-                      {currentAnswer}
+                    <div className="answer-content markdown-body">
+                      <Markdown>{currentAnswer}</Markdown>
                       {isGenerating && <span className="cursor">|</span>}
                     </div>
+                    {!isGenerating && currentAnswer && (
+                      <div className="answer-actions">
+                        <button className="copy-btn visible" title="Copy answer" onClick={() => { navigator.clipboard.writeText(currentAnswer); useStore.getState().addToast('Copied!', 'success'); }}>📋</button>
+                        <button className="copy-btn visible" title="Regenerate (Ctrl+Shift+R)" onClick={() => useStore.getState().regenerateAnswer()}>🔄</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
