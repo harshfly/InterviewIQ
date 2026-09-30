@@ -54,8 +54,9 @@ class ModelRouter:
     ) -> AsyncGenerator[str, None]:
         """
         Generate a streaming response, falling back through providers.
-        Yields text chunks.
+        Yields text chunks. Retries once on rate limits.
         """
+        import asyncio
         providers = self._get_provider_order(provider)
 
         for prov in providers:
@@ -65,7 +66,25 @@ class ModelRouter:
                     yield chunk
                 return  # Success — stop trying other providers
             except Exception as e:
-                logger.warning(f"Provider {prov} failed: {e}")
+                error_str = str(e)
+                # Retry once after delay on rate limits (429)
+                if "429" in error_str or "rate_limit" in error_str.lower():
+                    retry_delay = 5
+                    # Try to extract retry delay from error message
+                    import re
+                    delay_match = re.search(r'try again in (\d+\.?\d*)', error_str, re.IGNORECASE)
+                    if delay_match:
+                        retry_delay = min(float(delay_match.group(1)), 15)
+                    logger.info(f"Rate limited on {prov}, retrying in {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                    try:
+                        async for chunk in self._call_provider(prov, messages):
+                            yield chunk
+                        return
+                    except Exception as retry_e:
+                        logger.warning(f"Retry on {prov} also failed: {retry_e}")
+                else:
+                    logger.warning(f"Provider {prov} failed: {e}")
                 continue
 
         # All providers failed
@@ -103,18 +122,19 @@ class ModelRouter:
             }
 
     def _get_provider_order(self, preferred: str | None = None) -> list[str]:
-        """Get ordered list of providers to try. Groq first (fastest), then OpenRouter, then Gemini."""
+        """Get ordered list of providers to try. Groq first (fastest), then Gemini."""
         all_providers = []
 
         # Groq first — fastest inference
         if settings.groq_api_key:
             all_providers.append("groq")
-        if settings.openrouter_api_key:
-            all_providers.append("openrouter")
         if settings.google_ai_api_key:
             all_providers.append("gemini")
+        # OpenRouter only if explicitly requested (often out of credits)
+        if preferred == "openrouter" and settings.openrouter_api_key:
+            all_providers.insert(0, "openrouter")
 
-        if preferred and preferred in all_providers:
+        if preferred and preferred != "openrouter" and preferred in all_providers:
             all_providers.remove(preferred)
             all_providers.insert(0, preferred)
 
