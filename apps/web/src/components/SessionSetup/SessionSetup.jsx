@@ -39,11 +39,14 @@ export default function SessionSetup() {
       addToast('Job position and company are required.', 'error');
       return;
     }
+    // Sync language to global settings so audio capture uses it
+    useStore.getState().updateSettings({ language: formData.language });
     try {
       const session = await createSession(formData);
       if (resumeFile && session) {
         try {
-          await api.uploadResume(session.session_id, resumeFile);
+          const result = await api.uploadResume(session.session_id, resumeFile);
+          addToast(`Resume parsed (${result.characters} chars) — answers will be personalized!`, 'success');
         } catch {
           addToast('Resume upload failed — session started without it.', 'warning');
         }
@@ -147,6 +150,30 @@ export default function SessionSetup() {
               />
             </div>
           )}
+
+          <div className="form-row">
+            <div className="input-group">
+              <label className="input-label" htmlFor="language">Interview Language</label>
+              <select id="language" className="input" value={formData.language} onChange={handleChange('language')}>
+                <option value="en">🇬🇧 English</option>
+                <option value="hi">🇮🇳 Hindi</option>
+                <option value="es">🇪🇸 Spanish</option>
+                <option value="fr">🇫🇷 French</option>
+                <option value="de">🇩🇪 German</option>
+                <option value="zh">🇨🇳 Chinese</option>
+                <option value="ja">🇯🇵 Japanese</option>
+                <option value="ko">🇰🇷 Korean</option>
+                <option value="pt">🇧🇷 Portuguese</option>
+                <option value="ar">🇸🇦 Arabic</option>
+                <option value="ru">🇷🇺 Russian</option>
+                <option value="ta">🇮🇳 Tamil</option>
+                <option value="te">🇮🇳 Telugu</option>
+                <option value="bn">🇮🇳 Bengali</option>
+                <option value="mr">🇮🇳 Marathi</option>
+                <option value="auto">🌐 Auto-detect</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <button
@@ -180,21 +207,6 @@ export default function SessionSetup() {
                 onChange={handleChange('custom_instructions')}
                 rows={2}
               />
-            </div>
-            <div className="input-group">
-              <label className="input-label" htmlFor="language">Language</label>
-              <select id="language" className="input" value={formData.language} onChange={handleChange('language')}>
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="zh">Chinese</option>
-                <option value="ja">Japanese</option>
-                <option value="ko">Korean</option>
-                <option value="hi">Hindi</option>
-                <option value="pt">Portuguese</option>
-                <option value="auto">Auto-detect</option>
-              </select>
             </div>
           </div>
         )}
